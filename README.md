@@ -17,6 +17,7 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
 - [Usage](#usage)
   - [Wrapping sequences](#wrapping-sequences)
   - [Filter](#filter)
+  - [Transform](#transform)
   - [Limit](#limit)
   - [Skip](#skip)
   - [Collect](#collect)
@@ -72,6 +73,38 @@ for k, v := range xiter.ToSeq2(slices.All(words)).Filter(func(i int, s string) b
 }) {
     fmt.Println(k, v)
 }
+```
+
+### Transform
+
+`Transform` maps each element of a `Seq[V]` through a function, yielding a `Seq[T]`. Because Go does not yet allow methods to introduce new type parameters, `Transform` is a package-level function rather than a method on `Seq`. This restriction is expected to be lifted in Go 1.27 ([golang/go#77273](https://github.com/golang/go/issues/77273)).
+
+```go
+strs := xiter.Transform(
+    xiter.Seq[int](slices.Values([]int{1, 2, 3})),
+    strconv.Itoa,
+).Collect()
+// []string{"1", "2", "3"}
+```
+
+`Transform2` maps each `(K1, V1)` pair of a `Seq2` through a function, yielding a `Seq2[K2, V2]`:
+
+```go
+upper := xiter.Transform2(
+    xiter.ToSeq2(slices.All([]string{"a", "b", "c"})),
+    func(k int, v string) (int, string) { return k, strings.ToUpper(v) },
+)
+```
+
+`TransformToSeq2` converts a `Seq[V]` to a `Seq2[K, V2]` (e.g. pairing each element with a derived key). `TransformToSeq` does the reverse, collapsing each `(K, V)` pair into a single `T`.
+
+```go
+// pair each word with its length as the key
+withLen := xiter.TransformToSeq2(
+    xiter.Seq[string](slices.Values([]string{"go", "rust", "zig"})),
+    func(v string) (int, string) { return len(v), v },
+)
+// Seq2[int, string]: (2,"go"), (4,"rust"), (3,"zig")
 ```
 
 ### Limit
