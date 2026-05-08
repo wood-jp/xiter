@@ -21,6 +21,7 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
   - [Limit](#limit)
   - [Skip](#skip)
   - [Collect](#collect)
+  - [BoolSeq](#boolseq)
   - [Chaining](#chaining)
 - [Contributing](#contributing)
 - [Security](#security)
@@ -28,6 +29,8 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
 ## Stability
 
 v1.x releases make no breaking changes to exported APIs. New functionality may be added in minor releases; patches are bug fixes, or administrative work only.
+
+Release of v1.x will be delayed until after the release of go 1.27 in order to support chaining of the [Transform](#transform) functions.
 
 ## Installation
 
@@ -139,6 +142,50 @@ m := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).Collect()
 // map[int]string{0: "a", 1: "b", 2: "c"}
 ```
 
+### BoolSeq
+
+`BoolSeq` is a named wrapper around `Seq[bool]` that adds terminal operations `And` and `Or`, the non-terminal `Not`, and an `Iter` escape hatch.
+
+Produce a `BoolSeq` from any `Seq[V]` or `Seq2[K, V]` via `MapBool`, which applies a predicate to each element:
+
+```go
+// are all even numbers > 0?
+ok := xiter.Seq[int](slices.Values([]int{2, 4, 6})).
+    MapBool(func(v int) bool { return v > 0 }).
+    And()
+// true
+
+// does any word start with "go"?
+found := xiter.Seq[string](slices.Values([]string{"rust", "go", "zig"})).
+    MapBool(func(v string) bool { return strings.HasPrefix(v, "go") }).
+    Or()
+// true
+```
+
+`Seq2.MapBool` receives both the key and value:
+
+```go
+allEvenIndices := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).
+    MapBool(func(k int, _ string) bool { return k%2 == 0 }).
+    And()
+// false
+```
+
+`Not` negates each element and returns a new `BoolSeq` for further chaining:
+
+```go
+// no odd numbers in the slice?
+noneOdd := xiter.Seq[int](slices.Values([]int{2, 4, 6})).
+    MapBool(func(v int) bool { return v%2 != 0 }).
+    Not().
+    And()
+// true
+```
+
+Convert any `Seq[bool]` directly with `BoolSeq(s)`. Call `.Iter()` to get back an `iter.Seq[bool]` for stdlib interop.
+
+Empty sequences: `And` returns `true`, `Or` returns `false`.
+
 ### Chaining
 
 Methods return the same wrapper type, so they compose freely:
@@ -161,3 +208,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Security
 
 See [SECURITY.md](SECURITY.md).
+
+## Attribution
+
+*This library contains some code based on [zkr-go-common-public/iter](https://github.com/zircuit-labs/zkr-go-common-public/tree/main/iter)*
