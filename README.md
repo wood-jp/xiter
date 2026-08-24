@@ -30,11 +30,9 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
 
 v1.x releases make no breaking changes to exported APIs. New functionality may be added in minor releases; patches are bug fixes, or administrative work only.
 
-Release of v1.x will be delayed until after the release of go 1.27 in order to support chaining of the [Transform](#transform) functions.
-
 ## Installation
 
-Go 1.26.2 or later.
+Go 1.27.0 or later.
 
 ```bash
 go get github.com/wood-jp/xiter
@@ -80,33 +78,28 @@ for k, v := range xiter.ToSeq2(slices.All(words)).Filter(func(i int, s string) b
 
 ### Transform
 
-`Transform` maps each element of a `Seq[V]` through a function, yielding a `Seq[T]`. Because Go does not yet allow methods to introduce new type parameters, `Transform` is a package-level function rather than a method on `Seq`. This restriction is expected to be lifted in Go 1.27 ([golang/go#77273](https://github.com/golang/go/issues/77273)).
+`Transform` maps each element of a `Seq[V]` through a function, yielding a `Seq[T]`.
 
 ```go
-strs := xiter.Transform(
-    xiter.Seq[int](slices.Values([]int{1, 2, 3})),
-    strconv.Itoa,
-).Collect()
+strs := xiter.Seq[int](slices.Values([]int{1, 2, 3})).
+    Transform(strconv.Itoa).
+    Collect()
 // []string{"1", "2", "3"}
 ```
 
-`Transform2` maps each `(K1, V1)` pair of a `Seq2` through a function, yielding a `Seq2[K2, V2]`:
+`Seq2.Transform` maps each `(K1, V1)` pair of a `Seq2` through a function, yielding a `Seq2[K2, V2]`:
 
 ```go
-upper := xiter.Transform2(
-    xiter.ToSeq2(slices.All([]string{"a", "b", "c"})),
-    func(k int, v string) (int, string) { return k, strings.ToUpper(v) },
-)
+upper := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).
+    Transform(func(k int, v string) (int, string) { return k, strings.ToUpper(v) })
 ```
 
 `TransformToSeq2` converts a `Seq[V]` to a `Seq2[K, V2]` (e.g. pairing each element with a derived key). `TransformToSeq` does the reverse, collapsing each `(K, V)` pair into a single `T`.
 
 ```go
 // pair each word with its length as the key
-withLen := xiter.TransformToSeq2(
-    xiter.Seq[string](slices.Values([]string{"go", "rust", "zig"})),
-    func(v string) (int, string) { return len(v), v },
-)
+withLen := xiter.Seq[string](slices.Values([]string{"go", "rust", "zig"})).
+    TransformToSeq2(func(v string) (int, string) { return len(v), v })
 // Seq2[int, string]: (2,"go"), (4,"rust"), (3,"zig")
 ```
 
@@ -184,6 +177,19 @@ noneOdd := xiter.Seq[int](slices.Values([]int{2, 4, 6})).
 
 Convert any `Seq[bool]` directly with `BoolSeq(s)`. Call `.Iter()` to get back an `iter.Seq[bool]` for stdlib interop.
 
+`BoolSeq` is a defined type, so it does not inherit `Seq[bool]`'s methods (e.g. `Transform`). To map a `BoolSeq` to another element type, convert it back with `Seq[bool](bs)`:
+
+```go
+labels := xiter.Seq[bool](boolSeq).
+    Transform(func(v bool) string {
+        if v {
+            return "yes"
+        }
+        return "no"
+    }).
+    Collect()
+```
+
 Empty sequences: `And` returns `true`, `Or` returns `false`.
 
 ### Chaining
@@ -195,8 +201,9 @@ result := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5, 6, 7, 8})).
     Filter(func(v int) bool { return v%2 == 0 }).
     Skip(1).
     Limit(2).
+    Transform(strconv.Itoa).
     Collect()
-// []int{4, 6}
+// []string{"4", "6"}
 ```
 
 Early termination (`break` inside a `range` loop) propagates correctly through the chain.
