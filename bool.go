@@ -32,15 +32,15 @@ func (x BoolSeq) Or() bool {
 
 // Not returns a BoolSeq with each element negated.
 func (x BoolSeq) Not() BoolSeq {
-	return BoolSeq(Transform(Seq[bool](x), func(b bool) bool { return !b }))
+	return BoolSeq(Seq[bool](x).Transform(func(b bool) bool { return !b }))
 }
 
 // MapBool applies p to each element of x, returning a BoolSeq of the results.
 func (x Seq[V]) MapBool(p func(V) bool) BoolSeq {
-	return BoolSeq(Transform(x, p))
+	return BoolSeq(x.Transform(p))
 }
 
 // MapBool applies p to each (k, v) pair of x, returning a BoolSeq of the results.
 func (x Seq2[K, V]) MapBool(p func(K, V) bool) BoolSeq {
-	return BoolSeq(TransformToSeq(x, p))
+	return BoolSeq(x.TransformToSeq(p))
 }

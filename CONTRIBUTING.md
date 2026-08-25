@@ -4,7 +4,7 @@ Contributions are welcome. Please open an issue before starting significant work
 
 ## Prerequisites
 
-- Go 1.26.1 or later
+- Go 1.27.0 or later
 - [just](https://github.com/casey/just) task runner
 - [golangci-lint](https://golangci-lint.run) installed automatically by `just lint`
 

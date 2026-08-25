@@ -30,7 +30,7 @@ func TestTransform_IntToString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := xiter.Transform(xiter.Seq[int](slices.Values(tt.input)), strconv.Itoa).Collect()
+			got := xiter.Seq[int](slices.Values(tt.input)).Transform(strconv.Itoa).Collect()
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
@@ -48,7 +48,7 @@ func TestTransform_StructToStruct(t *testing.T) {
 	toDTO := func(p person) personDTO {
 		return personDTO{displayName: strings.ToUpper(p.name), adult: p.age >= 18}
 	}
-	got := xiter.Transform(xiter.Seq[person](slices.Values(people)), toDTO).Collect()
+	got := xiter.Seq[person](slices.Values(people)).Transform(toDTO).Collect()
 	want := []personDTO{
 		{"ALICE", true},
 		{"BOB", false},
@@ -66,7 +66,7 @@ func TestTransform_EarlyTermination(t *testing.T) {
 		calls++
 		return strconv.Itoa(v)
 	}
-	seq := xiter.Transform(xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})), f)
+	seq := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})).Transform(f)
 	var got []string
 	for v := range seq {
 		got = append(got, v)
@@ -86,14 +86,14 @@ func TestTransform_ChainsWithFilter(t *testing.T) {
 	t.Parallel()
 	seq := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})).
 		Filter(func(v int) bool { return v%2 == 0 })
-	got := xiter.Transform(seq, strconv.Itoa).Collect()
+	got := seq.Transform(strconv.Itoa).Collect()
 	want := []string{"2", "4"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
 
-func TestTransform2_KeyAndValue(t *testing.T) {
+func TestSeq2Transform_KeyAndValue(t *testing.T) {
 	t.Parallel()
 	input := []string{"a", "b", "c"}
 	f := func(k int, v string) (string, int) {
@@ -101,7 +101,7 @@ func TestTransform2_KeyAndValue(t *testing.T) {
 	}
 	var gotKeys []string
 	var gotVals []int
-	for k, v := range xiter.Transform2(xiter.Seq2[int, string](slices.All(input)), f) {
+	for k, v := range xiter.Seq2[int, string](slices.All(input)).Transform(f) {
 		gotKeys = append(gotKeys, k)
 		gotVals = append(gotVals, v)
 	}
@@ -113,7 +113,7 @@ func TestTransform2_KeyAndValue(t *testing.T) {
 	}
 }
 
-func TestTransform2_ValueOnly(t *testing.T) {
+func TestSeq2Transform_ValueOnly(t *testing.T) {
 	t.Parallel()
 	input := []string{"hello", "world"}
 	f := func(k int, v string) (int, string) {
@@ -121,7 +121,7 @@ func TestTransform2_ValueOnly(t *testing.T) {
 	}
 	var gotKeys []int
 	var gotVals []string
-	for k, v := range xiter.Transform2(xiter.Seq2[int, string](slices.All(input)), f) {
+	for k, v := range xiter.Seq2[int, string](slices.All(input)).Transform(f) {
 		gotKeys = append(gotKeys, k)
 		gotVals = append(gotVals, v)
 	}
@@ -133,14 +133,14 @@ func TestTransform2_ValueOnly(t *testing.T) {
 	}
 }
 
-func TestTransform2_EarlyTermination(t *testing.T) {
+func TestSeq2Transform_EarlyTermination(t *testing.T) {
 	t.Parallel()
 	calls := 0
 	f := func(k int, v string) (int, string) {
 		calls++
 		return k, strings.ToUpper(v)
 	}
-	seq := xiter.Transform2(xiter.Seq2[int, string](slices.All([]string{"a", "b", "c", "d", "e"})), f)
+	seq := xiter.Seq2[int, string](slices.All([]string{"a", "b", "c", "d", "e"})).Transform(f)
 	var gotKeys []int
 	var gotVals []string
 	for k, v := range seq {
@@ -161,7 +161,7 @@ func TestTransform2_EarlyTermination(t *testing.T) {
 	}
 }
 
-func TestTransform2_ChainsWithFilter(t *testing.T) {
+func TestSeq2Transform_ChainsWithFilter(t *testing.T) {
 	t.Parallel()
 	input := []string{"a", "b", "c", "d", "e"}
 	seq := xiter.Seq2[int, string](slices.All(input)).
@@ -171,7 +171,7 @@ func TestTransform2_ChainsWithFilter(t *testing.T) {
 	}
 	var gotKeys []int
 	var gotVals []string
-	for k, v := range xiter.Transform2(seq, f) {
+	for k, v := range seq.Transform(f) {
 		gotKeys = append(gotKeys, k)
 		gotVals = append(gotVals, v)
 	}
@@ -186,10 +186,8 @@ func TestTransform2_ChainsWithFilter(t *testing.T) {
 func TestTransformToSeq2_Basic(t *testing.T) {
 	t.Parallel()
 	input := []string{"a", "b", "c"}
-	seq := xiter.TransformToSeq2(
-		xiter.Seq[string](slices.Values(input)),
-		func(v string) (int, string) { return len(v), v },
-	)
+	seq := xiter.Seq[string](slices.Values(input)).
+		TransformToSeq2(func(v string) (int, string) { return len(v), v })
 	var gotKeys []int
 	var gotVals []string
 	for k, v := range seq {
@@ -211,10 +209,8 @@ func TestTransformToSeq2_EarlyTermination(t *testing.T) {
 		calls++
 		return len(v), v
 	}
-	seq := xiter.TransformToSeq2(
-		xiter.Seq[string](slices.Values([]string{"a", "b", "c", "d", "e"})),
-		f,
-	)
+	seq := xiter.Seq[string](slices.Values([]string{"a", "b", "c", "d", "e"})).
+		TransformToSeq2(f)
 	var gotKeys []int
 	for k := range seq {
 		gotKeys = append(gotKeys, k)
@@ -229,10 +225,8 @@ func TestTransformToSeq2_EarlyTermination(t *testing.T) {
 
 func TestTransformToSeq_Basic(t *testing.T) {
 	t.Parallel()
-	seq := xiter.TransformToSeq(
-		xiter.Seq2[int, string](slices.All([]string{"x", "y", "z"})),
-		func(k int, v string) string { return fmt.Sprintf("%d=%s", k, v) },
-	)
+	seq := xiter.Seq2[int, string](slices.All([]string{"x", "y", "z"})).
+		TransformToSeq(func(k int, v string) string { return fmt.Sprintf("%d=%s", k, v) })
 	got := seq.Collect()
 	want := []string{"0=x", "1=y", "2=z"}
 	if !slices.Equal(got, want) {
@@ -247,10 +241,8 @@ func TestTransformToSeq_EarlyTermination(t *testing.T) {
 		calls++
 		return fmt.Sprintf("%d=%s", k, v)
 	}
-	seq := xiter.TransformToSeq(
-		xiter.Seq2[int, string](slices.All([]string{"x", "y", "z", "w", "q"})),
-		f,
-	)
+	seq := xiter.Seq2[int, string](slices.All([]string{"x", "y", "z", "w", "q"})).
+		TransformToSeq(f)
 	var got []string
 	for v := range seq {
 		got = append(got, v)
@@ -266,13 +258,10 @@ func TestTransformToSeq_EarlyTermination(t *testing.T) {
 func TestTransformToSeq2_RoundTrip(t *testing.T) {
 	t.Parallel()
 	input := []string{"x", "y", "z"}
-	got := xiter.TransformToSeq(
-		xiter.TransformToSeq2(
-			xiter.Seq[string](slices.Values(input)),
-			func(v string) (int, string) { return len(v), strings.ToUpper(v) },
-		),
-		func(k int, v string) string { return fmt.Sprintf("%d:%s", k, v) },
-	).Collect()
+	got := xiter.Seq[string](slices.Values(input)).
+		TransformToSeq2(func(v string) (int, string) { return len(v), strings.ToUpper(v) }).
+		TransformToSeq(func(k int, v string) string { return fmt.Sprintf("%d:%s", k, v) }).
+		Collect()
 	want := []string{"1:X", "1:Y", "1:Z"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
