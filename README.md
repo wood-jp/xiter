@@ -5,7 +5,6 @@
 [![CI](https://github.com/wood-jp/xiter/actions/workflows/ci.yml/badge.svg)](https://github.com/wood-jp/xiter/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/wood-jp/xiter/badge.svg?branch=main)](https://coveralls.io/github/wood-jp/xiter?branch=main)
 [![Release](https://img.shields.io/github/v/release/wood-jp/xiter)](https://github.com/wood-jp/xiter/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/wood-jp/xiter)](https://goreportcard.com/report/github.com/wood-jp/xiter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Reference](https://pkg.go.dev/badge/github.com/wood-jp/xiter.svg)](https://pkg.go.dev/github.com/wood-jp/xiter)
 <!-- /badges -->
@@ -21,8 +20,10 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
   - [Limit](#limit)
   - [Skip](#skip)
   - [Collect](#collect)
-  - [BoolSeq](#boolseq)
+  - [Contains](#contains)
+  - [All and Any](#all-and-any)
   - [Chaining](#chaining)
+  - [Changing element type](#changing-element-type)
 - [Contributing](#contributing)
 - [Security](#security)
 
@@ -135,62 +136,55 @@ m := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).Collect()
 // map[int]string{0: "a", 1: "b", 2: "c"}
 ```
 
-### BoolSeq
+### Contains
 
-`BoolSeq` is a named wrapper around `Seq[bool]` that adds terminal operations `And` and `Or`, the non-terminal `Not`, and an `Iter` escape hatch.
+`Contains` reports whether a sequence has an element whose key equals a target, stopping at the first match. Pass a key extractor; use the identity function when the element type is already comparable:
 
-Produce a `BoolSeq` from any `Seq[V]` or `Seq2[K, V]` via `MapBool`, which applies a predicate to each element:
+```go
+found := xiter.Seq[int](slices.Values([]int{1, 2, 3})).
+    Contains(func(v int) int { return v }, 2)
+// true
+```
+
+For a type that isn't comparable, or to match on a derived key, extract that key instead:
+
+```go
+found := xiter.Seq[person](slices.Values(people)).
+    Contains(func(p person) string { return p.name }, "alice")
+```
+
+`Seq2.Contains` receives both the key and value when computing the comparison key.
+
+### All and Any
+
+`All` reports whether a predicate holds for every element, stopping at the first `false`. `Any` reports whether it holds for at least one, stopping at the first `true`.
 
 ```go
 // are all even numbers > 0?
 ok := xiter.Seq[int](slices.Values([]int{2, 4, 6})).
-    MapBool(func(v int) bool { return v > 0 }).
-    And()
+    All(func(v int) bool { return v > 0 })
 // true
 
 // does any word start with "go"?
 found := xiter.Seq[string](slices.Values([]string{"rust", "go", "zig"})).
-    MapBool(func(v string) bool { return strings.HasPrefix(v, "go") }).
-    Or()
+    Any(func(v string) bool { return strings.HasPrefix(v, "go") })
+// true
+
+// no odd numbers in the slice?
+noneOdd := xiter.Seq[int](slices.Values([]int{2, 4, 6})).
+    All(func(v int) bool { return v%2 == 0 })
 // true
 ```
 
-`Seq2.MapBool` receives both the key and value:
+`Seq2.All` and `Seq2.Any` receive both the key and value:
 
 ```go
 allEvenIndices := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).
-    MapBool(func(k int, _ string) bool { return k%2 == 0 }).
-    And()
+    All(func(k int, _ string) bool { return k%2 == 0 })
 // false
 ```
 
-`Not` negates each element and returns a new `BoolSeq` for further chaining:
-
-```go
-// no odd numbers in the slice?
-noneOdd := xiter.Seq[int](slices.Values([]int{2, 4, 6})).
-    MapBool(func(v int) bool { return v%2 != 0 }).
-    Not().
-    And()
-// true
-```
-
-Convert any `Seq[bool]` directly with `BoolSeq(s)`. Call `.Iter()` to get back an `iter.Seq[bool]` for stdlib interop.
-
-`BoolSeq` is a defined type, so it does not inherit `Seq[bool]`'s methods (e.g. `Transform`). To map a `BoolSeq` to another element type, convert it back with `Seq[bool](bs)`:
-
-```go
-labels := xiter.Seq[bool](boolSeq).
-    Transform(func(v bool) string {
-        if v {
-            return "yes"
-        }
-        return "no"
-    }).
-    Collect()
-```
-
-Empty sequences: `And` returns `true`, `Or` returns `false`.
+Empty sequences: `All` returns `true`, `Any` returns `false`.
 
 ### Chaining
 
@@ -207,6 +201,19 @@ result := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5, 6, 7, 8})).
 ```
 
 Early termination (`break` inside a `range` loop) propagates correctly through the chain.
+
+### Changing element type
+
+It is not possible to cast from `Seq[A]` to `Seq[B]` as these are are different underlying function types. Use `Transform` instead:
+
+```go
+anySeq := xiter.Seq[any](slices.Values([]any{"a", "b", "c"}))
+
+strs := anySeq.Transform(func(v any) string { return v.(string) }).Collect()
+// []string{"a", "b", "c"}
+```
+
+Note that in this example, if an element wasn't actually a `string` the type assertion would panic. That is entirely the choice of the caller, who must provide the transformation function.
 
 ## Contributing
 
