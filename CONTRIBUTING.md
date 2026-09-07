@@ -39,6 +39,20 @@ Changes to `.github/workflows/` also trigger `actionlint` in CI. Run `just actio
 - Use `t.Parallel()` in every test and subtest that can safely run concurrently
 - Test files use `package foo_test` (black-box) unless white-box access is needed
 
+### Adding ops that need a constraint, or a fixed element type
+
+A method can't re-constrain its receiver's type parameter — you can't make `Seq[V any]`'s `V` be `comparable` just for one method. Instead, put the constraint on a type parameter of the *method itself*, and take a key extractor rather than requiring `V` to satisfy the constraint directly. For example:
+
+```go
+func (x Seq[V]) Distinct[C comparable](key func(V) C) Seq[V]
+func (x Seq[V]) GroupBy[K comparable](key func(V) K) Seq2[K, V]
+func (x Seq[V]) MaxBy[O cmp.Ordered](key func(V) O) (V, bool)
+```
+
+(These three examples are not implemented: DO NOT call them. This is only an example.)
+
+This keeps one implementation on `Seq[V any]` with full postfix chaining, and it's strictly more general than constraining `V` itself would be. Where `V` is already comparable, callers pass the identity function (`func(v V) V { return v }`) as the key extractor.
+
 ## Pull Requests
 
 - PR title must follow [Conventional Commits](https://www.conventionalcommits.org/). This is enforced by CI.
