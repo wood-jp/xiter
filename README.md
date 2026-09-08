@@ -14,14 +14,21 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
 - [Stability](#stability)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Wrapping sequences](#wrapping-sequences)
-  - [Filter](#filter)
-  - [Transform](#transform)
-  - [Limit](#limit)
-  - [Skip](#skip)
-  - [Collect](#collect)
-  - [Contains](#contains)
-  - [All and Any](#all-and-any)
+  - [`xiter.go`](#xitergo)
+    - [Wrapping sequences](#wrapping-sequences)
+  - [`filter.go`](#filtergo)
+    - [Filter](#filter)
+    - [Limit](#limit)
+    - [Skip](#skip)
+  - [`transform.go`](#transformgo)
+    - [Transform](#transform)
+    - [TransformToSeq2](#transformtoseq2)
+    - [TransformToSeq](#transformtoseq)
+  - [`terminal.go`](#terminalgo)
+    - [Collect](#collect)
+    - [All and Any](#all-and-any)
+  - [`keyed.go`](#keyedgo)
+    - [Contains](#contains)
   - [Chaining](#chaining)
   - [Changing element type](#changing-element-type)
 - [Contributing](#contributing)
@@ -41,7 +48,13 @@ go get github.com/wood-jp/xiter
 
 ## Usage
 
-### Wrapping sequences
+### `xiter.go`
+
+Core types: `Seq[V]`, `Seq2[K, V]`, and the helpers for converting to and from `iter.Seq`/`iter.Seq2`.
+
+#### Wrapping sequences
+
+[source](xiter.go)
 
 Any `iter.Seq[V]` or `iter.Seq2[K, V]` can be wrapped for chaining with a type conversion or the `ToSeq`/`ToSeq2` helpers:
 
@@ -56,7 +69,13 @@ s2 := xiter.ToSeq2(slices.All([]string{"a", "b", "c"}))
 
 Call `.Iter()` on either wrapper to get back the underlying `iter.Seq`/`iter.Seq2` for use with stdlib functions.
 
-### Filter
+### `filter.go`
+
+Selection and slicing: methods that yield a subset of the input sequence, unchanged.
+
+#### Filter
+
+[source](filter.go#L4)
 
 `Filter` yields only the elements for which the predicate returns `true`.
 
@@ -77,7 +96,39 @@ for k, v := range xiter.ToSeq2(slices.All(words)).Filter(func(i int, s string) b
 }
 ```
 
-### Transform
+#### Limit
+
+[source](filter.go#L28)
+
+`Limit` stops iteration after at most `n` elements.
+
+```go
+first3 := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})).
+    Limit(3).
+    Collect()
+// []int{1, 2, 3}
+```
+
+#### Skip
+
+[source](filter.go#L56)
+
+`Skip` discards the first `n` elements then yields the rest.
+
+```go
+after2 := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})).
+    Skip(2).
+    Collect()
+// []int{3, 4, 5}
+```
+
+### `transform.go`
+
+Methods that map elements of a sequence to a new type.
+
+#### Transform
+
+[source](transform.go#L4)
 
 `Transform` maps each element of a `Seq[V]` through a function, yielding a `Seq[T]`.
 
@@ -95,7 +146,11 @@ upper := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).
     Transform(func(k int, v string) (int, string) { return k, strings.ToUpper(v) })
 ```
 
-`TransformToSeq2` converts a `Seq[V]` to a `Seq2[K, V2]` (e.g. pairing each element with a derived key). `TransformToSeq` does the reverse, collapsing each `(K, V)` pair into a single `T`.
+#### TransformToSeq2
+
+[source](transform.go#L13)
+
+`TransformToSeq2` converts a `Seq[V]` to a `Seq2[K, V2]` (e.g. pairing each element with a derived key).
 
 ```go
 // pair each word with its length as the key
@@ -104,29 +159,25 @@ withLen := xiter.Seq[string](slices.Values([]string{"go", "rust", "zig"})).
 // Seq2[int, string]: (2,"go"), (4,"rust"), (3,"zig")
 ```
 
-### Limit
+#### TransformToSeq
 
-`Limit` stops iteration after at most `n` elements.
+[source](transform.go#L32)
 
-```go
-first3 := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})).
-    Limit(3).
-    Collect()
-// []int{1, 2, 3}
-```
-
-### Skip
-
-`Skip` discards the first `n` elements then yields the rest.
+`TransformToSeq` does the reverse of `TransformToSeq2`, collapsing each `(K, V)` pair of a `Seq2` into a single `T`.
 
 ```go
-after2 := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4, 5})).
-    Skip(2).
-    Collect()
-// []int{3, 4, 5}
+lens := xiter.ToSeq2(slices.All([]string{"go", "rust", "zig"})).
+    TransformToSeq(func(_ int, v string) int { return len(v) })
+// Seq[int]: 2, 4, 3
 ```
 
-### Collect
+### `terminal.go`
+
+Terminal methods: consume the sequence and produce a final, non-`Seq` result.
+
+#### Collect
+
+[source](terminal.go#L53)
 
 `Seq[V].Collect()` materializes the sequence into a `[]V`.
 `Seq2[K, V].Collect()` materializes the sequence into a `map[K]V`.
@@ -136,26 +187,9 @@ m := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).Collect()
 // map[int]string{0: "a", 1: "b", 2: "c"}
 ```
 
-### Contains
+#### All and Any
 
-`Contains` reports whether a sequence has an element whose key equals a target, stopping at the first match. Pass a key extractor; use the identity function when the element type is already comparable:
-
-```go
-found := xiter.Seq[int](slices.Values([]int{1, 2, 3})).
-    Contains(func(v int) int { return v }, 2)
-// true
-```
-
-For a type that isn't comparable, or to match on a derived key, extract that key instead:
-
-```go
-found := xiter.Seq[person](slices.Values(people)).
-    Contains(func(p person) string { return p.name }, "alice")
-```
-
-`Seq2.Contains` receives both the key and value when computing the comparison key.
-
-### All and Any
+[`All` source](terminal.go#L10) · [`Any` source](terminal.go#L21)
 
 `All` reports whether a predicate holds for every element, stopping at the first `false`. `Any` reports whether it holds for at least one, stopping at the first `true`.
 
@@ -185,6 +219,31 @@ allEvenIndices := xiter.ToSeq2(slices.All([]string{"a", "b", "c"})).
 ```
 
 Empty sequences: `All` returns `true`, `Any` returns `false`.
+
+### `keyed.go`
+
+Methods requiring `comparable` types, keyed off a `key func(V) C` projection.
+
+#### Contains
+
+[source](keyed.go#L5)
+
+`Contains` reports whether a sequence has an element whose key equals a target, stopping at the first match. Pass a key extractor; use the identity function when the element type is already comparable:
+
+```go
+found := xiter.Seq[int](slices.Values([]int{1, 2, 3})).
+    Contains(func(v int) int { return v }, 2)
+// true
+```
+
+For a type that isn't comparable, or to match on a derived key, extract that key instead:
+
+```go
+found := xiter.Seq[person](slices.Values(people)).
+    Contains(func(p person) string { return p.name }, "alice")
+```
+
+`Seq2.Contains` receives both the key and value when computing the comparison key.
 
 ### Chaining
 
