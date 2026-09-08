@@ -1,5 +1,10 @@
 package xiter
 
+import (
+	"maps"
+	"slices"
+)
+
 // All reports whether pred returns true for every element of x.
 // It stops at the first false. Returns true for an empty sequence.
 func (x Seq[V]) All(pred func(V) bool) bool {
@@ -43,3 +48,9 @@ func (x Seq2[K, V]) Any(pred func(K, V) bool) bool {
 	}
 	return false
 }
+
+// Collect materializes the sequence into a slice.
+func (x Seq[V]) Collect() []V { return slices.Collect(x.Iter()) }
+
+// Collect materializes the sequence into a map.
+func (x Seq2[K, V]) Collect() map[K]V { return maps.Collect(x.Iter()) }
