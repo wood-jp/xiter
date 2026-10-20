@@ -29,6 +29,7 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
     - [All and Any](#all-and-any)
   - [`keyed.go`](#keyedgo)
     - [Contains](#contains)
+    - [Distinct](#distinct)
   - [Chaining](#chaining)
   - [Changing element type](#changing-element-type)
 - [Contributing](#contributing)
@@ -244,6 +245,29 @@ found := xiter.Seq[person](slices.Values(people)).
 ```
 
 `Seq2.Contains` receives both the key and value when computing the comparison key.
+
+#### Distinct
+
+[source](keyed.go#L27)
+
+`Distinct` yields only the first element seen for each key, dropping later elements whose key repeats:
+
+```go
+uniq := xiter.Seq[int](slices.Values([]int{1, 2, 2, 3, 1})).
+    Distinct(func(v int) int { return v }).
+    Collect()
+// []int{1, 2, 3}
+```
+
+As with `Contains`, pass a key extractor to dedupe by a derived key instead of the element itself:
+
+```go
+uniq := xiter.Seq[person](slices.Values(people)).
+    Distinct(func(p person) string { return p.name }).
+    Collect()
+```
+
+`Seq2.Distinct` receives both the key and value when computing the comparison key.
 
 ### Chaining
 

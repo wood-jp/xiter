@@ -17,21 +17,20 @@ element type.
   `Transform(func(v V) V { f(v); return v })`, but `f`'s signature returns
   nothing, so the sequence is untouched by construction rather than by
   convention — makes "can't mutate what flows through" visible in the type.
+- **Sample/SampleIf** - random sampling, or sampling only those that match predicate
+- **ToChan/FromChan** - convert to/from channels. Potentially fan-out/fan-in?
 
 ## `comparable`
 
 Following the pattern established by `Contains`.
 
-- **Uniq / Distinct** — dedupe elements by a `key func(V) C` projection,
-  yielding only first occurrences. Shares the same `key func(V) C` shape as
-  `Contains`; likely the next method to build.
 - **IndexOf** — like `Contains` but returns the position (or -1) of the first
   match instead of a bool.
 - **CountOf** — count elements whose key equals a target (or count
   occurrences per key, returning `map[C]int`).
 - **GroupBy** — partition into `map[C][]V` by key.
 - **Union / Intersect / Diff** — set operations between two sequences by key,
-  natural once `Uniq` and a lookup-set helper exist.
+  natural now that `Distinct` and a lookup-set helper exist.
 
 ## Windowing (no constraint on `V`)
 

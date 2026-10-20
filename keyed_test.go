@@ -1,6 +1,7 @@
 package xiter_test
 
 import (
+	"maps"
 	"slices"
 	"testing"
 
@@ -72,6 +73,91 @@ func TestSeqContains_EarlyTermination(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Errorf("f called %d times, want 2", calls)
+	}
+}
+
+func TestSeqDistinct_KeyExtractor(t *testing.T) {
+	t.Parallel()
+	people := []person{
+		{"Alice", 30},
+		{"Bob", 17},
+		{"Alice", 40},
+	}
+	got := xiter.Seq[person](slices.Values(people)).
+		Distinct(func(p person) string { return p.name }).
+		Collect()
+	want := []person{
+		{"Alice", 30},
+		{"Bob", 17},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestSeqDistinct_IdentityKey(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input []int
+		want  []int
+	}{
+		{"duplicates", []int{1, 2, 2, 3, 1}, []int{1, 2, 3}},
+		{"no duplicates", []int{1, 2, 3}, []int{1, 2, 3}},
+		{"empty", []int{}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := xiter.Seq[int](slices.Values(tt.input)).
+				Distinct(func(v int) int { return v }).
+				Collect()
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSeqDistinct_EarlyTermination(t *testing.T) {
+	t.Parallel()
+	calls := 0
+	f := func(v int) int {
+		calls++
+		return v
+	}
+	seq := xiter.Seq[int](slices.Values([]int{1, 2, 3})).Transform(f)
+	for range seq.Distinct(func(v int) int { return v }) {
+		break
+	}
+	if calls != 1 {
+		t.Errorf("f called %d times, want 1", calls)
+	}
+}
+
+func TestSeq2Distinct(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input []string
+		key   func(int, string) string
+		want  map[int]string
+	}{
+		{
+			"dedupe by value",
+			[]string{"a", "b", "a", "c"},
+			func(_ int, v string) string { return v },
+			map[int]string{0: "a", 1: "b", 3: "c"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := xiter.Seq2[int, string](slices.All(tt.input)).Distinct(tt.key).Collect()
+			if !maps.Equal(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
