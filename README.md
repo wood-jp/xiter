@@ -30,6 +30,8 @@ Iterator utilities for `iter.Seq` and `iter.Seq2`. Wraps both sequence types wit
   - [`keyed.go`](#keyedgo)
     - [Contains](#contains)
     - [Distinct](#distinct)
+  - [`chan.go`](#chango)
+    - [FromChan and ToChan](#fromchan-and-tochan)
   - [Chaining](#chaining)
   - [Changing element type](#changing-element-type)
 - [Contributing](#contributing)
@@ -268,6 +270,27 @@ uniq := xiter.Seq[person](slices.Values(people)).
 ```
 
 `Seq2.Distinct` receives both the key and value when computing the comparison key.
+
+### `chan.go`
+
+#### FromChan and ToChan
+
+[source](chan.go)
+
+`FromChan` turns a channel into a `Seq`, and `ToChan` turns a `Seq` into an unbuffered channel. Both take a `context.Context`; cancellation wins over ready values, and ends the sequence or closes the channel:
+
+```go
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
+
+ch := xiter.Seq[int](slices.Values([]int{1, 2, 3, 4})).ToChan(ctx)
+evens := xiter.FromChan(ctx, ch).
+    Filter(func(v int) bool { return v%2 == 0 }).
+    Collect()
+// []int{2, 4}
+```
+
+`ToChan` starts its goroutine immediately. Drain the channel or cancel the context, otherwise the goroutine leaks. There are no `Seq2` equivalents.
 
 ### Chaining
 
