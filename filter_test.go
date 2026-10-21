@@ -402,3 +402,41 @@ func TestSeq2Skip(t *testing.T) {
 		})
 	}
 }
+
+func TestSeqLimit_DoesNotOverPull(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []uint{0, 1, 2} {
+		var pulled int
+		src := xiter.Seq[int](func(yield func(int) bool) {
+			for i := range 5 {
+				pulled++
+				if !yield(i) {
+					return
+				}
+			}
+		})
+		_ = src.Limit(limit).Collect()
+		if pulled != int(limit) {
+			t.Errorf("limit %d: pulled %d from source, want %d", limit, pulled, limit)
+		}
+	}
+}
+
+func TestSeq2Limit_DoesNotOverPull(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []uint{0, 1, 2} {
+		var pulled int
+		src := xiter.Seq2[int, int](func(yield func(int, int) bool) {
+			for i := range 5 {
+				pulled++
+				if !yield(i, i) {
+					return
+				}
+			}
+		})
+		_ = src.Limit(limit).Collect()
+		if pulled != int(limit) {
+			t.Errorf("limit %d: pulled %d from source, want %d", limit, pulled, limit)
+		}
+	}
+}

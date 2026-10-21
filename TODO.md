@@ -18,7 +18,7 @@ element type.
   nothing, so the sequence is untouched by construction rather than by
   convention — makes "can't mutate what flows through" visible in the type.
 - **Sample/SampleIf** - random sampling, or sampling only those that match predicate
-- **ToChan/FromChan** - convert to/from channels. Potentially fan-out/fan-in?
+- **Fan-out/fan-in** - building on `ToChan`/`FromChan`, distribute a sequence across workers and merge results.
 
 ## `comparable`
 
